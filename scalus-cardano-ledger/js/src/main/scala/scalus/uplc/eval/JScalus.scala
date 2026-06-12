@@ -22,15 +22,15 @@ object JScalus {
 
     extension (self: Result)
         /** Converts Result to JSResult. When the result carries profiling data (i.e. it was
-          * produced with profiling enabled), the `profileHtml` field is set to a self-contained
-          * HTML report — including a per-line cost-annotated source view for any profiled source
-          * files readable from disk — and `profileJson` to the same data as JSON. Otherwise both
-          * profile fields are left `undefined`.
+          * produced with profiling enabled), the `profileJson` field is set to the profile rendered
+          * as JSON; otherwise it is `undefined`.
+          *
+          * Only the lightweight JSON rendering is exposed here on purpose: the HTML report and its
+          * source-annotation machinery live in [[ProfileFormatter.toHtml]] / `loadSources`, which
+          * are deliberately not referenced from the JS facade so they stay dead-code-eliminated out
+          * of the (transaction-builder) `scalus.js` bundle.
           */
         def toJSResult: JSResult =
-            val profileHtml: js.UndefOr[String] = self.profile match
-                case Some(p) => ProfileFormatter.toHtml(p, ProfileFormatter.loadSources(p))
-                case None    => js.undefined
             val profileJson: js.UndefOr[String] = self.profile match
                 case Some(p) => ProfileFormatter.toJson(p)
                 case None    => js.undefined
@@ -40,7 +40,6 @@ object JScalus {
                       isSuccess = true,
                       budget = s.budget.toJSExUnits,
                       logs = js.Array(s.logs*),
-                      profileHtml = profileHtml,
                       profileJson = profileJson
                     )
                 case f: Result.Failure =>
@@ -48,7 +47,6 @@ object JScalus {
                       isSuccess = false,
                       budget = f.budget.toJSExUnits,
                       logs = js.Array(f.exception.getMessage +: f.logs*),
-                      profileHtml = profileHtml,
                       profileJson = profileJson
                     )
 
@@ -60,11 +58,9 @@ object JScalus {
         val isSuccess: Boolean,
         val budget: JSExUnits,
         val logs: js.Array[String],
-        /** Self-contained HTML profiling report; `undefined` unless the script was evaluated with
-          * profiling (see [[evaluateScriptProfile]]).
+        /** Profiling data as JSON; `undefined` unless the script was evaluated with profiling (see
+          * [[evaluateScriptProfile]]).
           */
-        val profileHtml: js.UndefOr[String],
-        /** Profiling data as JSON; `undefined` unless evaluated with profiling. */
         val profileJson: js.UndefOr[String]
     ) extends js.Object
 
@@ -121,22 +117,22 @@ object JScalus {
                   isSuccess = false,
                   budget = ExUnits.zero.toJSExUnits,
                   logs = js.Array(exception.getMessage),
-                  profileHtml = js.undefined,
                   profileJson = js.undefined
                 )
     }
 
     /** Evaluates a Plutus script with profiling enabled.
       *
-      * Like [[evaluateScript]], but the returned [[JSResult]] additionally carries a self-contained
-      * HTML profiling report in `profileHtml` (cost by source location, hot paths and hot edges,
-      * plus a per-line cost-annotated source view for any profiled source files readable from disk
-      * under the current working directory) and the same profiling data as JSON in `profileJson`.
+      * Like [[evaluateScript]], but the returned [[JSResult]] additionally carries the CEK machine
+      * profiling data as JSON in `profileJson` (per-source-location and per-builtin cost, plus the
+      * transition edges). To turn that data into the interactive HTML report (sortable tables, hot
+      * paths/edges, annotated source) use the Scala/JVM `ProfileFormatter`; the HTML renderer is
+      * intentionally kept out of `scalus.js` to keep the transaction-builder bundle small.
       *
       * @param doubleCborHex
       *   The double-CBOR-encoded hex representation of the Plutus script.
       * @return
-      *   A JSResult with `profileHtml` and `profileJson` populated.
+      *   A JSResult with `profileJson` populated.
       */
     @JSExport
     def evaluateScriptProfile(doubleCborHex: String): JSResult = {
@@ -150,7 +146,6 @@ object JScalus {
                   isSuccess = false,
                   budget = ExUnits.zero.toJSExUnits,
                   logs = js.Array(exception.getMessage),
-                  profileHtml = js.undefined,
                   profileJson = js.undefined
                 )
     }

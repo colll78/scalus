@@ -15,18 +15,15 @@ export namespace Scalus {
       isSuccess: boolean,
       budget: ExUnits,
       logs: string[],
-      profileHtml?: string,
       profileJson?: string,
     );
     isSuccess: boolean;
     budget: ExUnits;
     logs: string[];
     /**
-     * Self-contained HTML profiling report. Present only when the result was produced by
+     * CEK machine profiling data as JSON. Present only when the result was produced by
      * {@link evaluateScriptProfile}; `undefined` otherwise.
      */
-    profileHtml?: string;
-    /** Profiling data as JSON. Present only when produced by {@link evaluateScriptProfile}. */
     profileJson?: string;
   }
 
@@ -59,12 +56,13 @@ export namespace Scalus {
   /**
    * Evaluates a Plutus script with profiling enabled.
    *
-   * Like {@link evaluateScript}, but the returned Result also carries a self-contained HTML
-   * profiling report in `profileHtml` (cost by source location, hot paths and hot edges, plus a
-   * per-line cost-annotated source view for any profiled source files readable from disk under the
-   * current working directory) and the same profiling data as JSON in `profileJson`.
+   * Like {@link evaluateScript}, but the returned Result also carries the CEK machine profiling
+   * data as JSON in `profileJson` (per-source-location and per-builtin cost plus the transition
+   * edges). The interactive HTML report renderer is intentionally not bundled in `scalus.js` (to
+   * keep the transaction-builder bundle small); generate it from this data with the Scala/JVM
+   * `ProfileFormatter` if needed.
    * @param doubleCborHex The double-CBOR-encoded hex of the script.
-   * @returns A Result with `profileHtml` and `profileJson` populated.
+   * @returns A Result with `profileJson` populated.
    */
   export function evaluateScriptProfile(doubleCborHex: string): Result;
 

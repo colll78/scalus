@@ -237,38 +237,29 @@ for (const redeemer of redeemers) {
 
 ### Profiling a script
 
-`Scalus.evaluateScript(doubleCborHex)` runs a single fully-applied script (for example the output of `Scalus.applyDataArgToScript`) and returns a `Result` with `isSuccess`, `budget`, and `logs`. `Scalus.evaluateScriptProfile(doubleCborHex)` does the same but also collects [CEK machine profiling data](/docs/testing/profiling), exposed on the result as two extra fields:
-
-- `profileHtml` — a self-contained interactive HTML report (sortable/filterable tables with %-of-CPU bars, hot paths, hot edges, and a per-line cost-annotated source view).
-- `profileJson` — the same profiling data as JSON, for your own tooling.
-
-Both are `undefined` for the plain `evaluateScript` (which has zero profiling overhead).
+`Scalus.evaluateScript(doubleCborHex)` runs a single fully-applied script (for example the output of `Scalus.applyDataArgToScript`) and returns a `Result` with `isSuccess`, `budget`, and `logs`. `Scalus.evaluateScriptProfile(doubleCborHex)` does the same but also collects [CEK machine profiling data](/docs/testing/profiling), exposed on the result as `profileJson` — per-source-location and per-builtin cost plus the transition edges. It is `undefined` for the plain `evaluateScript` (which has zero profiling overhead).
 
 ```typescript
 import { Scalus } from "scalus";
-import { writeFileSync } from "node:fs";
 
 // `applied` is a fully-applied script, e.g. from Scalus.applyDataArgToScript(...)
 const result = Scalus.evaluateScriptProfile(applied);
 
 console.log(`success=${result.isSuccess}, cpu=${result.budget.steps}, mem=${result.budget.memory}`);
 
-// Write the interactive report and open it in a browser.
-if (result.profileHtml) {
-  writeFileSync("profile.html", result.profileHtml);
-}
-
-// Or work with the raw numbers.
 if (result.profileJson) {
   const profile = JSON.parse(result.profileJson);
   console.log(`total cpu: ${profile.totalBudget.cpu}`);
+  // profile.bySourceLocation / profile.byFunction / profile.transitions
 }
 ```
 
 <Callout type="info">
-  The per-line **annotated-source** view only appears for source files readable from disk under the
-  current working directory (Node). When those files aren't present — or in the browser — the report
-  still renders every other view, just without the source annotations.
+  Only the profiling **data** is available from JavaScript. The interactive HTML report (sortable
+  tables, hot paths/edges, annotated source) is rendered by the Scala/JVM
+  [`ProfileFormatter`](/docs/testing/profiling#html-output) — it is deliberately kept out of
+  `scalus.js` so the transaction-builder bundle stays small. Feed `profileJson` into your own tooling,
+  or run the profiler on the JVM to get the HTML.
 </Callout>
 
 ## See Also

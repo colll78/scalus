@@ -30,14 +30,12 @@ interface ScalusAPI {
     isSuccess: boolean;
     budget: { memory: bigint; steps: bigint };
     logs: string[];
-    profileHtml?: string;
     profileJson?: string;
   };
   evaluateScriptProfile(doubleCborHex: string): {
     isSuccess: boolean;
     budget: { memory: bigint; steps: bigint };
     logs: string[];
-    profileHtml?: string;
     profileJson?: string;
   };
   evalPlutusScripts(
@@ -188,9 +186,9 @@ export function testEvaluateScript(Scalus: ScalusAPI): TestResult[] {
     const applied = Scalus.applyDataArgToScript(script, JSON.stringify({ int: 42 }));
     const result = Scalus.evaluateScript(applied);
     results.push({
-      name: "evaluateScript: no profile fields when profiling not requested",
-      passed: result.profileHtml === undefined && result.profileJson === undefined,
-      message: `profileHtml: ${typeof result.profileHtml}, profileJson: ${typeof result.profileJson}`,
+      name: "evaluateScript: no profile data when profiling not requested",
+      passed: result.profileJson === undefined,
+      message: `profileJson: ${typeof result.profileJson}`,
     });
   } catch (e) {
     results.push({
@@ -227,17 +225,12 @@ export function testEvaluateScriptProfile(Scalus: ScalusAPI): TestResult[] {
     });
 
     results.push({
-      name: "evaluateScriptProfile: profileHtml is a self-contained HTML report",
-      passed:
-        typeof result.profileHtml === "string" &&
-        result.profileHtml.includes("<html") &&
-        result.profileHtml.includes("Scalus CEK Machine Profile"),
-      message: `profileHtml type: ${typeof result.profileHtml}, length: ${
-        result.profileHtml?.length ?? 0
-      }`,
+      name: "evaluateScriptProfile: profileJson is present",
+      passed: typeof result.profileJson === "string" && result.profileJson.length > 0,
+      message: `profileJson type: ${typeof result.profileJson}`,
     });
 
-    let parsed: { totalBudget?: { cpu?: number } } | undefined;
+    let parsed: { totalBudget?: { cpu?: number }; bySourceLocation?: unknown[] } | undefined;
     if (typeof result.profileJson === "string") {
       parsed = JSON.parse(result.profileJson);
     }
