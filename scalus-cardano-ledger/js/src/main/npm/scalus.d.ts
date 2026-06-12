@@ -11,10 +11,23 @@ export namespace Scalus {
 
   /** Script evaluation result. */
   export class Result {
-    constructor(isSuccess: boolean, budget: ExUnits, logs: string[]);
+    constructor(
+      isSuccess: boolean,
+      budget: ExUnits,
+      logs: string[],
+      profileHtml?: string,
+      profileJson?: string,
+    );
     isSuccess: boolean;
     budget: ExUnits;
     logs: string[];
+    /**
+     * Self-contained HTML profiling report. Present only when the result was produced by
+     * {@link evaluateScriptProfile}; `undefined` otherwise.
+     */
+    profileHtml?: string;
+    /** Profiling data as JSON. Present only when produced by {@link evaluateScriptProfile}. */
+    profileJson?: string;
   }
 
   /** Redeemer with execution budget. */
@@ -42,6 +55,18 @@ export namespace Scalus {
    * @returns A Result object with the evaluation outcome, budget, and logs.
    */
   export function evaluateScript(doubleCborHex: string): Result;
+
+  /**
+   * Evaluates a Plutus script with profiling enabled.
+   *
+   * Like {@link evaluateScript}, but the returned Result also carries a self-contained HTML
+   * profiling report in `profileHtml` (cost by source location, hot paths and hot edges, plus a
+   * per-line cost-annotated source view for any profiled source files readable from disk under the
+   * current working directory) and the same profiling data as JSON in `profileJson`.
+   * @param doubleCborHex The double-CBOR-encoded hex of the script.
+   * @returns A Result with `profileHtml` and `profileJson` populated.
+   */
+  export function evaluateScriptProfile(doubleCborHex: string): Result;
 
   /**
    * Evaluates all Plutus scripts in a transaction against the provided UTxO set.

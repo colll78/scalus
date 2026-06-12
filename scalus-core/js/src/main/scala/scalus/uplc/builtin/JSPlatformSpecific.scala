@@ -316,8 +316,13 @@ trait NodeJsPlatformSpecific extends PlatformSpecific {
     }
 
     override def fileExists(path: String): Boolean = {
-        val fs = js.Dynamic.global.require("fs")
-        fs.existsSync(path).asInstanceOf[Boolean]
+        // Best-effort: callers such as `ProfileFormatter.loadSources` use this to decide whether a
+        // source file can be annotated. In a non-Node environment (e.g. a browser bundle) there is
+        // no `require`/`fs`, so report "does not exist" instead of throwing a `ReferenceError`.
+        if js.typeOf(js.Dynamic.global.require) != "function" then false
+        else
+            val fs = js.Dynamic.global.require("fs")
+            fs.existsSync(path).asInstanceOf[Boolean]
     }
 }
 

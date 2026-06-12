@@ -30,6 +30,15 @@ interface ScalusAPI {
     isSuccess: boolean;
     budget: { memory: bigint; steps: bigint };
     logs: string[];
+    profileHtml?: string;
+    profileJson?: string;
+  };
+  evaluateScriptProfile(doubleCborHex: string): {
+    isSuccess: boolean;
+    budget: { memory: bigint; steps: bigint };
+    logs: string[];
+    profileHtml?: string;
+    profileJson?: string;
   };
   evalPlutusScripts(
     txCborBytes: Uint8Array,
@@ -170,6 +179,78 @@ export function testEvaluateScript(Scalus: ScalusAPI): TestResult[] {
       name: "evaluateScript: fail script throws or returns isSuccess=false",
       passed: true,
       message: `Threw: ${String(e)}`,
+    });
+  }
+
+  // Plain evaluateScript must NOT carry profiling data.
+  try {
+    const script = successScriptHex;
+    const applied = Scalus.applyDataArgToScript(script, JSON.stringify({ int: 42 }));
+    const result = Scalus.evaluateScript(applied);
+    results.push({
+      name: "evaluateScript: no profile fields when profiling not requested",
+      passed: result.profileHtml === undefined && result.profileJson === undefined,
+      message: `profileHtml: ${typeof result.profileHtml}, profileJson: ${typeof result.profileJson}`,
+    });
+  } catch (e) {
+    results.push({
+      name: "evaluateScript: no profile fields when profiling not requested",
+      passed: false,
+      message: String(e),
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Tests for Scalus.evaluateScriptProfile
+ */
+export function testEvaluateScriptProfile(Scalus: ScalusAPI): TestResult[] {
+  const results: TestResult[] = [];
+
+  try {
+    const script = successScriptHex;
+    const applied = Scalus.applyDataArgToScript(script, JSON.stringify({ int: 42 }));
+    const result = Scalus.evaluateScriptProfile(applied);
+
+    results.push({
+      name: "evaluateScriptProfile: success case returns isSuccess=true",
+      passed: result.isSuccess === true,
+      message: result.isSuccess ? undefined : `isSuccess was ${result.isSuccess}`,
+    });
+
+    results.push({
+      name: "evaluateScriptProfile: budget is tracked",
+      passed: result.budget.steps > 0n && result.budget.memory > 0n,
+      message: `mem: ${result.budget.memory}, cpu: ${result.budget.steps}`,
+    });
+
+    results.push({
+      name: "evaluateScriptProfile: profileHtml is a self-contained HTML report",
+      passed:
+        typeof result.profileHtml === "string" &&
+        result.profileHtml.includes("<html") &&
+        result.profileHtml.includes("Scalus CEK Machine Profile"),
+      message: `profileHtml type: ${typeof result.profileHtml}, length: ${
+        result.profileHtml?.length ?? 0
+      }`,
+    });
+
+    let parsed: { totalBudget?: { cpu?: number } } | undefined;
+    if (typeof result.profileJson === "string") {
+      parsed = JSON.parse(result.profileJson);
+    }
+    results.push({
+      name: "evaluateScriptProfile: profileJson parses with a totalBudget",
+      passed: parsed?.totalBudget?.cpu !== undefined && Number(parsed.totalBudget.cpu) > 0,
+      message: `profileJson totalBudget: ${JSON.stringify(parsed?.totalBudget)}`,
+    });
+  } catch (e) {
+    results.push({
+      name: "evaluateScriptProfile: success case",
+      passed: false,
+      message: String(e),
     });
   }
 
@@ -425,6 +506,7 @@ export function runAllTests(
   return [
     ...testApplyDataArgToScript(Scalus),
     ...testEvaluateScript(Scalus),
+    ...testEvaluateScriptProfile(Scalus),
     ...testSlotConfig(SlotConfig),
     ...testEvalPlutusScripts(Scalus, SlotConfig),
   ];
@@ -435,6 +517,7 @@ if (typeof window !== "undefined") {
   (window as unknown as Record<string, unknown>).runAllSharedTests = runAllTests;
   (window as unknown as Record<string, unknown>).testApplyDataArgToScript = testApplyDataArgToScript;
   (window as unknown as Record<string, unknown>).testEvaluateScript = testEvaluateScript;
+  (window as unknown as Record<string, unknown>).testEvaluateScriptProfile = testEvaluateScriptProfile;
   (window as unknown as Record<string, unknown>).testSlotConfig = testSlotConfig;
   (window as unknown as Record<string, unknown>).testEvalPlutusScripts = testEvalPlutusScripts;
 }
